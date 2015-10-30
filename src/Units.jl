@@ -147,4 +147,66 @@ function unitstring{T<:BaseUnit}(x::T)
     powerstring = n == 1 ? "" : "^$n"
     string(unittype, powerstring)
 end
+
+"""
+Represents a general combination of different base units.
+
+The representation is lazy: quantities that are multiplied together
+retain their separate values. Those values are only combined upon
+printing using the `show` function and on retrieving the value using the
+`value` function.
+
+Unit objects have a type invariant which is enforced through all of the
+operations defined below, so don't try to hack it by treating them as
+tuples on your own! The invariant is that each BaseUnit type appears at
+most once in the tuple. This is what you'd expect—although technicaly
+units like seconds per second exist, I don't want them to show up here.
+"""
+typealias Unit Tuple{Vararg{BaseUnit}}
+
+function types(x::Unit)
+    map(y->(unit(y), numtype(y), pow(y)), x)
+end
+
+function show(io::IO, x::Unit)
+    value = mapreduce(y->y.val, *, 1, x)
+    unitsstring = mapreduce(
+        y->unitstring(y),
+        (a, b)->string(a, " ", b),
+        "", x)
+    print(io, string(value, " ", unitsstring))
+end
+
+function *(x::BaseUnit, y::BaseUnit)
+    (x, y)
+end
+
+function *(x::BaseUnit, y::Unit)
+
+    xsearch = (unit(x), pow(x))
+    ylist = types(y)
+    ylist = map(x->(x[1], x[3]), ylist)
+    xiny = findin(ylist, (xsearch,))
+    if length(xiny) == 0
+        result = (y..., x)
+    elseif length(xiny) == 1
+        index = xiny[1]
+        firstpart = y[1:index-1]
+        updatedpart = y[index] * x
+        lastpart = y[index+1:end]
+        result = (firstpart..., updatedpart, lastpart...)
+    else
+        error("Corrupted Unit object: $y")
+    end
+    result
+end
+
+function *(x::Unit, y::Unit)
+    result = y
+    for quantity in x
+        result = quantity * result
+    end
+    result
+end
+
 end
