@@ -8,8 +8,7 @@ import Base: convert, show, string, promote_rule
 """
 Represents the unit (e.g. seconds, meters) of a quantity.
 """
-abstract BaseUnit
-typealias Unit Tuple{Vararg{BaseUnit}}
+abstract BaseUnit <: Number
 
 """
 Represents a whole system of units.
@@ -37,9 +36,11 @@ SI = UnitSystem([], [])
 push!(SI.baseunits, "Meter")
 push!(SI.baseunits, "Second")
 push!(SI.baseunits, "Kilogram")
+push!(SI.baseunits, "Radian")
 push!(SI.abbreviations, "m")
 push!(SI.abbreviations, "s")
 push!(SI.abbreviations, "kg")
+push!(SI.abbreviations, "rad")
 
 # This loop defines all the standard behaviors for units that do not
 # involve combinations of different units
@@ -62,6 +63,12 @@ for unitabbr in zip(SI.baseunits, SI.abbreviations)
             $unit{T, 1}(x)
         end
         """
+        Extract the base parametric type (i.e. Meter for Meter{Int, 2}).
+        """
+        function unit(x::$unit)
+            $unit
+        end
+        """
         Get the power that the unit is raised to (e.g 2 for m^2).
         """
         pow{T<:Number, n}(quantity::$unit{T, n}) = n
@@ -73,24 +80,48 @@ for unitabbr in zip(SI.baseunits, SI.abbreviations)
         Get a power of 1 for parameter-less type.
         """
         pow(::Type{$unit}) = 1
+        """
+        Get the numeric type of the unit.
+        """
+        numtype{T<:Number, n}(quantity::$unit{T, n}) = T
+        """
+        Get the numeric type of the unit.
+        """
+        numtype{T<:Number, n}(::Type{$unit{T, n}}) = T
         $abbr = $unit
-        function show{T<:Number, n}(io::IO, quantity::$unit{T, n})
+        function string{T<:Number, n}(::Type{$unit{T, n}})
             powerstring = n == 1 ? "" : "^$n"
-            print(io, string(quantity.val, " ", $abbrtext, powerstring))
+            string($abbrtext, powerstring)
         end
-        function promote_rule{n, T, S}(::Type{$unit{T, n}},
-            ::Type{$unit{S, n}})
-            $unit{promote_type(T, S), n}
+        function string(::Type{$unit})
+            string($abbrtext)
         end
-        function promote_rule{n, m, T, S}(::Type{$unit{T, n}},
+        function string{T<:$unit}(quantity::T)
+            string(quantity.val, " ", string(T))
+        end
+        function show{T<:$unit}(io::IO, quantity::T)
+            print(io, string(quantity))
+        end
+        function show(io::IO, T::Type{$unit})
+            print(io, string(T))
+        end
+        function promote_rule{n, m, T<:Number, S<:Number}(::Type{$unit{T, n}},
             ::Type{$unit{S, m}})
             error("Incompatible powers: $n ≠ $m")
         end
-        function convert{n, S, T}(::Type{$unit{S, n}}, x::$unit{T, n})
-            $unit{S, n}(x.val)
+        function promote_rule{n, T<:Number, S<:Number}(::Type{$unit{T, n}},
+            ::Type{$unit{S, n}})
+            $unit{promote_type(T, S), n}
         end
-        function *{T, n}(x::Number, ::Type{$unit{T, n}})
-            $unit{T, n}(x)
+        function promote_rule{n, T<:Number, S<:Number}(
+            ::Type{$unit{T, n}}, ::Type{S})
+            $unit{promote_type(T, S), n}
+        end
+        function convert{n, T, S}(::Type{$unit{T, n}}, x::$unit{S, n})
+            $unit{T, n}(x.val)
+        end
+        function convert{n, T, S<:Number}(::Type{$unit{T, n}}, x::S)
+            $unit{T, 0}(x)
         end
         function *{T, S, n, m}(x::$unit{T, n}, y::$unit{S, m})
             $unit{promote_type(T, S), n + m}(x.val * y.val)
@@ -110,6 +141,10 @@ function -{T<:BaseUnit}(x::T, y::T)
     T(x.val - y.val)
 end
 
-+{T<:BaseUnit, S<:BaseUnit}(x::T, y::S) = +(promote(x, y)...)
--{T<:BaseUnit, S<:BaseUnit}(x::T, y::S) = -(promote(x, y)...)
+function unitstring{T<:BaseUnit}(x::T)
+    unittype = unit(x)
+    n = pow(x)
+    powerstring = n == 1 ? "" : "^$n"
+    string(unittype, powerstring)
+end
 end
