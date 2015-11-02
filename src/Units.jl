@@ -5,6 +5,9 @@ module units
 import Base: +, -, *, ^, /
 import Base: convert, show, string, promote_rule
 
+export BaseUnit, Unit, Unitful, SI, reciprocal
+
+
 """
 Represents quantities that have units.
 """
@@ -70,6 +73,7 @@ for unitabbr in zip(SI.baseunits, SI.abbreviations)
     abbr = symbol(abbrtext)
 
     @eval begin
+        export $unit, $abbr
         """
         The unit.
         """
