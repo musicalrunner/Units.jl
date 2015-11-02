@@ -48,6 +48,8 @@ using units
     Float64, 1}, Second{Float64, -1}}, Float64}(0.5)
 @test 1.0m / 2.0s^-1 == Unit{Tuple{Meter{Float64, 1}, Second{Float64, 1}},
     Float64}(0.5)
+@test Unit(2m) * 5 == Unit{Tuple{Meter{Int, 1}}, Int}(10)
+@test 5 * Unit(2m) == Unit{Tuple{Meter{Int, 1}}, Int}(10)
 
 # Interaction with dimensionless quantities
 @test 1Dimensionless == Dimensionless{Int, 1}(1)
