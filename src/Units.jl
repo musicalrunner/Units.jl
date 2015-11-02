@@ -41,8 +41,8 @@ end
 """
 Convenience "constructor."
 """
-function *{T<:BaseUnit}(x::Number, ::Type{T})
-    T(x)
+function *{T<:Number, S<:BaseUnit}(x::T, ::Type{S})
+    unit(S){T, pow(S)}(x)
 end
 
 """
@@ -189,6 +189,9 @@ immutable Unit{T<:CompositeUnit, S<:Number} <: Unitful
     val::S
 end
 
+# Constructor out of BaseUnit type
+Unit(x::BaseUnit) = convert(Unit, x)
+
 function types{T<:CompositeUnit}(x::Unit{T})
     unittuple = T.types
     map(y->(unit(y), numtype(y), pow(y)), unittuple)
@@ -231,7 +234,7 @@ function *{T<:CompositeUnit, S<:Number}(x::BaseUnit, y::Unit{T, S})
     xsearch = unit(x)
     ylist = types(y)
     ylist = map(x->x[1], ylist)
-    xiny = findin(ylist, xsearch)
+    xiny = findin(ylist, (xsearch,))
     numbertype = promote_type(S, numtype(x))
     if length(xiny) == 0
         tupletype = Tuple{T.types...,typeof(x)}
@@ -247,10 +250,8 @@ function *{T<:CompositeUnit, S<:Number}(x::BaseUnit, y::Unit{T, S})
 end
 
 
-#=*(x::Unit, y::BaseUnit) = y * x=#
-
 function factors{T<:CompositeUnit, S<:Number}(x::Unit{T, S})
-    map(u->1unit(u), T.types)
+    map(u->one(numtype(u))*unit(u)^(pow(u)), T.types)
 end
 
 function *{T<:Number, S<:Number, U<:Number, V<:Number, n, m}(
@@ -283,7 +284,6 @@ end
 #=*(x::BaseUnit, y::Unit) = *(promote(x, y)...)=#
 
 /(x::Unit, y::Unit) = x * reciprocal(y)
-#=/(x::BaseUnit, y::BaseUnit) = /(promote(x, y)...)=#
 
 function reciprocal{T<:CompositeUnit, S<:Number}(x::Unit{T, S})
     newtypes = map(U->unit(U){S, -pow(U)}, T.types)
