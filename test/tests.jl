@@ -1,4 +1,4 @@
-push!(LOAD_PATH, "../src")
+push!(LOAD_PATH, "/Users/skohn/Programming/projects/Units.jl/src")
 using Base.Test
 using units
 
@@ -30,15 +30,20 @@ using units
 @test 1.0m * 2 == Meter{Float64, 1}(2.0)
 
 # Tests of Unit
+
+# Constructor
 @test Unit((0.5)m^5.2) == Unit{Tuple{Meter{Float64, 5.2}}, Float64}(0.5)
+
+# In-unit arithmetic
 @test 1m * 4s == Unit{Tuple{Meter{Int, 1}, Second{Int, 1}}, Int}(4)
-@test 1m * 4.0s == Unit{Tuple{Meter{Int, 1}, Second{Float64, 1}},
+@test 1m * 4.0s == Unit{Tuple{Meter{Float64, 1}, Second{Float64, 1}},
     Float64}(4.0)
 @test (1m * 4.0s) * 2m == Unit{Tuple{Meter{Float64, 2}, Second{Float64,
     1}}, Float64}(8.0)
-@test 1m * (4.0s * 2m) == Unit{Tuple{Second{Float64, 1}, Meter{Float64,
-    2}}, Float64}(8.0)
-@test 1m * 4.0s * 2s == Unit{Tuple{Meter{Int, 1}, Second{Float64, 2}},
+@test 1m * (4.0s * 2m) == Unit{Tuple{Meter{Float64, 2}, Second{Float64,
+    1}}, Float64}(8.0)
+@test (1m * 4.0s) * 2m == 1m * (4.0s * 2m)
+@test 1m * 4.0s * 2s == Unit{Tuple{Meter{Float64, 1}, Second{Float64, 2}},
     Float64}(8.0)
 @test reciprocal(Unit{Tuple{Meter{Float64, 1}}, Float64}(4.0)) == Unit{
     Tuple{Meter{Float64, -1}}, Float64}(0.25)
@@ -50,6 +55,8 @@ using units
     Float64}(0.5)
 @test Unit(2m) * 5 == Unit{Tuple{Meter{Int, 1}}, Int}(10)
 @test 5 * Unit(2m) == Unit{Tuple{Meter{Int, 1}}, Int}(10)
+@test 1m * 4s + 2.0s * 3m == Unit{Tuple{Meter{Float64, 1},
+    Second{Float64, 1}}, Float64}(10.0)
 
 # Interaction with dimensionless quantities
 @test 1Dimensionless == Dimensionless{Int, 1}(1)

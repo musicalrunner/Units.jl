@@ -224,10 +224,12 @@ function promote_rule{T<:Unit, S<:Number}(::Type{T}, y::Type{S})
     Unit
 end
 function *(x::BaseUnit, y::BaseUnit)
-    Unit{
-        Tuple{typeof(x), typeof(y)},
-        promote_type(numtype(x), numtype(y))
-        }(x.val * y.val)
+    commontype = promote_type(numtype(x), numtype(y))
+    xtype = unit(x){commontype, pow(x)}
+    ytype = unit(y){commontype, pow(y)}
+    tupletypes = (unitstring(x) < unitstring(y) ? (xtype, ytype)
+        : (ytype, xtype))
+    Unit{ Tuple{tupletypes...}, commontype}(x.val * y.val)
 end
 
 function *{T<:CompositeUnit, S<:Number}(x::BaseUnit, y::Unit{T, S})
@@ -237,7 +239,12 @@ function *{T<:CompositeUnit, S<:Number}(x::BaseUnit, y::Unit{T, S})
     xiny = findin(ylist, (xsearch,))
     numbertype = promote_type(S, numtype(x))
     if length(xiny) == 0
-        tupletype = Tuple{T.types...,typeof(x)}
+        # Find the last index for which typeof(x) comes later in the
+        # alphabet than typeof(T.types[index])
+        index = indexin([true], map(t->string(t) < string(typeof(x)),
+            T.types))[1] + 1
+        tupletype = Tuple{T.types[1:index-1]...,typeof(x),
+            T.types[index:end]...}
     elseif length(xiny) == 1
         index = xiny[1]
         newtype = unit(x){numbertype, pow(T.types[index]) + 1}
@@ -288,6 +295,11 @@ end
 function reciprocal{T<:CompositeUnit, S<:Number}(x::Unit{T, S})
     newtypes = map(U->unit(U){S, -pow(U)}, T.types)
     Unit{Tuple{newtypes...}, S}(one(S)/x.val)
+end
+
+# Addition and subtraction
+function +{T<:CompositeUnit, S<:Number}(x::Unit{T, S}, y::Unit{T, S})
+    Unit{T, S}(x.val + y.val)
 end
 
 end
