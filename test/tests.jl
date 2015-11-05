@@ -5,62 +5,34 @@ using units
 # Tests of BaseUnit
 
 # Factory constructors
-@test 1m == Meter{Int, 1}(1)
-@test 1.0m == Meter{Float64, 1}(1.0)
-@test 1m^3 == Meter{Int, 3}(1)
-@test 1m^-2.5 == Meter{Int, -2.5}(1)
+@test m == Meter{1}()
+@test m^3 == Meter{3}()
+@test m^-2.5 == Meter{-2.5}()
 
 # Existence of other units
-@test 1s == Second{Int, 1}(1)
-@test 1kg == Kilogram{Int, 1}(1)
-@test 1rad == Radian{Int, 1}(1)
+@test s == Second{1}()
+@test kg == Kilogram{1}()
+@test rad == Radian{1}()
 
 # In-unit arithmetic
-@test 1m + 1m == Meter{Int, 1}(2)
-@test 1m - 1m == Meter{Int, 1}(0)
-# TODO: numeric type promotion
-#@test 1m + (1//2)m == Meter{Rational{Int}, 1}(3//2)
-@test_throws MethodError 1m^2 + 5m == Meter{Int, 1}(2)
-@test_throws MethodError 1m + 2s == Meter{Int, 1}(2)
-@test 1m * 5m == Meter{Int, 2}(5)
-@test 1m * 5.0m == Meter{Float64, 2}(5.0)
-@test 5m / 2.0m^3 == Meter{Float64, -2}(2.5)
-@test reciprocal(4.0m) == 0.25m^-1
-@test 2 * 1.0m == Meter{Float64, 1}(2.0)
-@test 1.0m * 2 == Meter{Float64, 1}(2.0)
+@test m * m == Meter{2}()
+@test m / m^3 == Meter{-2}()
+@test reciprocal(m) == m^-1
 
 # Tests of Unit
 
 # Constructor
-@test Unit((0.5)m^5.2) == Unit{Tuple{Meter{Float64, 5.2}}, Float64}(0.5)
+@test Unit(m^5.2) == Unit{Tuple{Meter{5.2}}}()
+@test Unit(m^2) == Unit{Tuple{Meter{2}}}()
 
 # In-unit arithmetic
-@test 1m * 4s == Unit{Tuple{Meter{Int, 1}, Second{Int, 1}}, Int}(4)
-@test 1m * 4.0s == Unit{Tuple{Meter{Float64, 1}, Second{Float64, 1}},
-    Float64}(4.0)
-@test (1m * 4.0s) * 2m == Unit{Tuple{Meter{Float64, 2}, Second{Float64,
-    1}}, Float64}(8.0)
-@test 1m * (4.0s * 2m) == Unit{Tuple{Meter{Float64, 2}, Second{Float64,
-    1}}, Float64}(8.0)
-@test (1m * 4.0s) * 2m == 1m * (4.0s * 2m)
-@test 1m * 4.0s * 2s == Unit{Tuple{Meter{Float64, 1}, Second{Float64, 2}},
-    Float64}(8.0)
-@test reciprocal(Unit{Tuple{Meter{Float64, 1}}, Float64}(4.0)) == Unit{
-    Tuple{Meter{Float64, -1}}, Float64}(0.25)
-@test 1.0m / 2.0s == Unit{Tuple{Meter{Float64, 1}, Second{Float64, -1}},
-    Float64}(0.5)
-@test Unit(1.0m) * Unit(0.5s^-1) == Unit{Tuple{Meter{
-    Float64, 1}, Second{Float64, -1}}, Float64}(0.5)
-@test 1.0m / 2.0s^-1 == Unit{Tuple{Meter{Float64, 1}, Second{Float64, 1}},
-    Float64}(0.5)
-@test Unit(2m) * 5 == Unit{Tuple{Meter{Int, 1}}, Int}(10)
-@test 5 * Unit(2m) == Unit{Tuple{Meter{Int, 1}}, Int}(10)
-@test 1m * 4s + 2.0s * 3m == Unit{Tuple{Meter{Float64, 1},
-    Second{Float64, 1}}, Float64}(10.0)
-
-# Interaction with dimensionless quantities
-@test 1Dimensionless == Dimensionless{Int, 1}(1)
-# TODO: Convert between unit^0 and Dimensionless, and any Dimensionless
-# and pure numeric types
-#@test 5m / 2.0m + 2.5 == 5.0
-#@test 5m / 2.0m == ???
+@test m * s == Unit{Tuple{Meter{1}, Second{1}}}()
+@test m * s == s * m
+@test (m * s) * m == Unit{Tuple{Meter{2}, Second{1}}}()
+@test m * (s * m) == Unit{Tuple{Meter{2}, Second{1}}}()
+@test (m * s) * m == m * (s * m)
+@test m * s * s == Unit{Tuple{Meter{1}, Second{2}}}()
+@test reciprocal(m*s) == Unit{ Tuple{Meter{-1}, Second{-1}}}()
+@test m / s == Unit{Tuple{Meter{1}, Second{-1}}}()
+@test Unit(m) * Unit(s^-1) == m/s
+@test m/(kg * s^-1) == Unit{Tuple{Kilogram{-1}, Meter{1}, Second{1}}}()

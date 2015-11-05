@@ -22,7 +22,7 @@ abstract Unitful
 """
 Represents the unit (e.g. seconds, meters) of a quantity.
 """
-abstract BaseUnit <: Unitful
+abstract BaseUnit{n} <: Unitful
 
 """
 Represents a whole system of units.
@@ -38,22 +38,6 @@ type UnitSystem
     end
 end
 
-"""
-Convenience "constructor."
-"""
-function *{T<:Number, S<:BaseUnit}(x::T, ::Type{S})
-    unit(S){T, pow(S)}(x)
-end
-
-"""
-Adjust power before constructing an instance (e.g. 5m^2).
-"""
-# The first definition is to disambiguate from ^{::Type{Any},
-# n::Integer}
-^{T<:BaseUnit}(::Type{T}, n::Integer) = unit(T){Float64, n}
-^{T<:BaseUnit}(::Type{T}, n::Number) = unit(T){Float64, n}
-
-
 # The SI system of units
 SI = UnitSystem()
 push!(SI.baseunits, "Meter")
@@ -65,8 +49,7 @@ push!(SI.abbreviations, "s")
 push!(SI.abbreviations, "kg")
 push!(SI.abbreviations, "rad")
 
-# This loop defines all the standard behaviors for units that do not
-# involve combinations of different units
+# This loop defines all the standard behaviors for base units
 for unitabbr in zip(SI.baseunits, SI.abbreviations)
     unit = symbol(unitabbr[1])
     abbrtext = unitabbr[2]
@@ -77,17 +60,16 @@ for unitabbr in zip(SI.baseunits, SI.abbreviations)
         """
         The unit.
         """
-        immutable $unit{T<:Number, n} <: BaseUnit
-            val::T
+        type $unit{n} <: BaseUnit{n}
         end
         """
         Constructor for parameter-less type defaults to parameter n=1.
         """
-        function $unit{T<:Number}(x::T)
-            $unit{T, 1}(x)
+        function $unit()
+            $unit{1}()
         end
         """
-        Extract the base parametric type (i.e. Meter for Meter{Int, 2}).
+        Extract the base parametric type (i.e. Meter for Meter{2}).
         """
         function unit(x::$unit)
             $unit
@@ -98,82 +80,42 @@ for unitabbr in zip(SI.baseunits, SI.abbreviations)
         """
         Get the power that the unit is raised to (e.g 2 for m^2).
         """
-        pow{T<:Number, n}(quantity::$unit{T, n}) = n
+        pow{n}(quantity::$unit{n}) = n
         """
         Get the power that the unit is raised to (e.g 2 for m^2).
         """
-        pow{T<:Number, n}(::Type{$unit{T, n}}) = n
+        pow{n}(::Type{$unit{n}}) = n
         """
         Get a power of 1 for parameter-less type.
         """
         pow(::Type{$unit}) = 1
-        """
-        Get the numeric type of the unit.
-        """
-        numtype{T<:Number, n}(quantity::$unit{T, n}) = T
-        """
-        Get the numeric type of the unit.
-        """
-        numtype{T<:Number, n}(::Type{$unit{T, n}}) = T
-        $abbr = $unit
-        function string{T<:Number, n}(::Type{$unit{T, n}})
-            powerstring = n == 1 ? "" : "^$n"
-            string($abbrtext, powerstring)
-        end
-        function string(::Type{$unit})
+        $abbr = $unit()
+        function string(x::$unit{1})
             string($abbrtext)
         end
-        function string{T<:$unit}(quantity::T)
-            string(quantity.val, " ", string(T))
+        function string{n}(x::$unit{n})
+            string($abbrtext, "^$n")
         end
-        function show{T<:$unit}(io::IO, quantity::T)
+        function show(io::IO, quantity::$unit)
             print(io, string(quantity))
         end
-        function show(io::IO, T::Type{$unit})
-            print(io, string(T))
+        function *{n, m}(x::$unit{n}, y::$unit{m})
+            $unit{n+m}()
         end
-        function promote_rule{n, m, T<:Number, S<:Number}(::Type{$unit{T, n}},
-            ::Type{$unit{S, m}})
-            error("Incompatible powers: $n ≠ $m")
+        function /{n, m}(x::$unit{n}, y::$unit{m})
+            $unit{n-m}()
         end
-        function promote_rule{n, T<:Number, S<:Number}(::Type{$unit{T, n}},
-            ::Type{$unit{S, n}})
-            $unit{promote_type(T, S), n}
+        function ^{n}(x::$unit{n}, y::Integer)
+            $unit{n*y}()
         end
-        function promote_rule{n, T<:Number, S<:Number}(
-            ::Type{$unit{T, n}}, ::Type{S})
-            $unit
+        function ^{n}(x::$unit{n}, y::Number)
+            $unit{n*y}()
         end
-        function convert{n, T, S}(::Type{$unit{T, n}}, x::$unit{S, n})
-            $unit{T, n}(x.val)
-        end
-        function convert{S<:Number}(::Type{$unit}, x::S)
-            $unit{S, 0}(x)
-        end
-        function *{T, S, n, m}(x::$unit{T, n}, y::$unit{S, m})
-            $unit{promote_type(T, S), n + m}(x.val * y.val)
-        end
-        function /{T, S, n, m}(x::$unit{T, n}, y::$unit{S, m})
-            $unit{promote_type(T, S), n - m}(x.val / y.val)
-        end
-
+        reciprocal{n}(x::$unit{n}) = $unit{-n}()
+        reciprocal{n}(::Type{$unit{n}}) = $unit{-n}
     end
 end
 
-
-function +{T<:BaseUnit}(x::T, y::T)
-    T(x.val + y.val)
-end
-function -{T<:BaseUnit}(x::T, y::T)
-    T(x.val - y.val)
-end
-
-
-reciprocal(x::BaseUnit) = 1/x
-
-function unitstring{T<:BaseUnit}(x::T)
-    string(T)
-end
 
 """
 Represents a general combination of different base units.
@@ -184,60 +126,42 @@ type appears at most once in the type parameter. This is what you'd
 expect—although technicaly units like seconds per second exist, I don't
 want them to show up here.
 """
-typealias CompositeUnit Tuple{Vararg{BaseUnit}}
-immutable Unit{T<:CompositeUnit, S<:Number} <: Unitful
-    val::S
+typealias BaseUnitTuple Tuple{Vararg{BaseUnit}}
+type Unit{T<:BaseUnitTuple} <: Unitful
 end
 
 # Constructor out of BaseUnit type
 Unit(x::BaseUnit) = convert(Unit, x)
 
-function types{T<:CompositeUnit}(x::Unit{T})
-    unittuple = T.types
-    map(y->(unit(y), numtype(y), pow(y)), unittuple)
+function types{T<:BaseUnitTuple}(x::Unit{T})
+    T.types
 end
 
-function show{T<:CompositeUnit}(io::IO, x::Unit{T})
+function show{T<:BaseUnitTuple}(io::IO, x::Unit{T})
     unitsstring = mapreduce(
-        S->string(S),
+        S->string(S()),
         (a, b)->string(a, " ", b),
-        "", T.types)
-    print(io, string(x.val, " ", unitsstring))
+        "", T.types)[2:end]
+    print(io, unitsstring)
 end
 
 function promote_rule{T<:Unitful, S<:Unitful}(::Type{T}, ::Type{S})
     Unit
 end
-function convert(::Type{Unit}, x::BaseUnit)
-    Unit{Tuple{typeof(x)}, numtype(x)}(x.val)
+function convert{T<:BaseUnit}(::Type{Unit}, x::T)
+    Unit{Tuple{T}}()
 end
 
-function convert{T<:Unit}(::Type{T}, x::T)
-    x
+function *{T<:BaseUnit, S<:BaseUnit}(x::T, y::S)
+    tupletypes = (string(x) < string(y) ? (T, S)
+        : (S, T))
+    Unit{Tuple{tupletypes...}}()
 end
-
-function convert{T<:Unit, S<:Number}(::Type{T}, x::S)
-    Unit{Tuple{Dimensionless{S, 0}}, S}(x)
-end
-
-function promote_rule{T<:Unit, S<:Number}(::Type{T}, y::Type{S})
-    Unit
-end
-function *(x::BaseUnit, y::BaseUnit)
-    commontype = promote_type(numtype(x), numtype(y))
-    xtype = unit(x){commontype, pow(x)}
-    ytype = unit(y){commontype, pow(y)}
-    tupletypes = (unitstring(x) < unitstring(y) ? (xtype, ytype)
-        : (ytype, xtype))
-    Unit{ Tuple{tupletypes...}, commontype}(x.val * y.val)
-end
-
-function *{T<:CompositeUnit, S<:Number}(x::BaseUnit, y::Unit{T, S})
+function *{T<:BaseUnitTuple}(x::BaseUnit, y::Unit{T})
     xsearch = unit(x)
     ylist = types(y)
-    ylist = map(x->x[1], ylist)
+    ylist = map(x->unit(x), ylist)
     xiny = findin(ylist, (xsearch,))
-    numbertype = promote_type(S, numtype(x))
     if length(xiny) == 0
         # Find the last index for which typeof(x) comes later in the
         # alphabet than typeof(T.types[index])
@@ -247,59 +171,29 @@ function *{T<:CompositeUnit, S<:Number}(x::BaseUnit, y::Unit{T, S})
             T.types[index:end]...}
     elseif length(xiny) == 1
         index = xiny[1]
-        newtype = unit(x){numbertype, pow(T.types[index]) + 1}
+        newtype = unit(x){pow(T.types[index]) + 1}
         tupletype = Tuple{T.types[1:index-1]..., newtype,
         T.types[index+1:end]...}
     else
         error("Corrupted Unit object: $y")
     end
-    result = Unit{tupletype, numbertype}(x.val * y.val)
+    result = Unit{tupletype}()
 end
 
-
-function factors{T<:CompositeUnit, S<:Number}(x::Unit{T, S})
-    map(u->one(numtype(u))*unit(u)^(pow(u)), T.types)
-end
-
-function *{T<:Number, S<:Number, U<:Number, V<:Number, n, m}(
-    x::Unit{Tuple{Dimensionless{T, n}}, S},
-    y::Unit{Tuple{Dimensionless{U, m}}, V}
-)
-    Unit{Tuple{Dimensionless{promote_type(T, U), 0}},
-        promote_type(S, V)}(x.val * y.val)
-end
-
-function *{T<:Number, S<:Number, n}(x::Unit{Tuple{Dimensionless{T, n}}, S}, y::Unit)
-    typeof(y)(y.val * x.val)
-end
-function *{T<:Number, S<:Number, n}(x::Unit, y::Unit{Tuple{Dimensionless{T, n}}, S})
-    y * x
-end
-
-function *{T<:CompositeUnit, S<:CompositeUnit, U<:Number, V<:Number}(
-    x::Unit{T, U}, y::Unit{S, V})
-    result = Unit{T, promote_type(U, V)}(x.val * y.val)
-    for quantity in factors(y)
-        result = quantity * result
+function *{T<:BaseUnitTuple, S<:BaseUnitTuple}(x::Unit{T}, y::Unit{S})
+    result = Unit{T}()
+    yfactors = map(x->x(), types(y))
+    for factor in yfactors
+        result = factor * result
     end
     result
 end
 
-#=*(x::Unit, y::Number) = *(promote(x, y)...)=#
-#=*(x::Number, y::Unit) = *(promote(x, y)...)=#
-#=*(x::Unit, y::BaseUnit) = *(promote(x, y)...)=#
-#=*(x::BaseUnit, y::Unit) = *(promote(x, y)...)=#
-
 /(x::Unit, y::Unit) = x * reciprocal(y)
 
-function reciprocal{T<:CompositeUnit, S<:Number}(x::Unit{T, S})
-    newtypes = map(U->unit(U){S, -pow(U)}, T.types)
-    Unit{Tuple{newtypes...}, S}(one(S)/x.val)
-end
-
-# Addition and subtraction
-function +{T<:CompositeUnit, S<:Number}(x::Unit{T, S}, y::Unit{T, S})
-    Unit{T, S}(x.val + y.val)
+function reciprocal{T<:BaseUnitTuple}(x::Unit{T})
+    newtypes = map(reciprocal, T.types)
+    Unit{Tuple{newtypes...}}()
 end
 
 end
